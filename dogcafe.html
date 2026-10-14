@@ -137,7 +137,7 @@
   </main>
 
   <!-- ① 아래 YOUR_JAVASCRIPT_KEY 를 카카오 디벨로퍼스의 'JavaScript 키'로 바꿔주세요 -->
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=09ecc13bc06db3f0c313c32b6506454a&libraries=services&autoload=false"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_JAVASCRIPT_KEY&libraries=services&autoload=false"></script>
   <script src="cafes.js"></script>
   <script>
     const GOYANG_CENTER = { lat: 37.6584, lng: 126.8320 }; // 고양시청 부근
@@ -166,7 +166,11 @@
         level: 7
       });
       map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
-      geocoder = new kakao.maps.services.Geocoder();
+      if (kakao.maps.services) {
+        geocoder = new kakao.maps.services.Geocoder();
+      } else {
+        console.error("services 라이브러리가 로드되지 않았어요. SDK 주소에 &libraries=services 가 있는지 확인하세요.");
+      }
       infoWindow = new kakao.maps.InfoWindow({ removable: true });
 
       document.getElementById("cnt-all").textContent = CAFES.length;
@@ -201,6 +205,12 @@
     }
 
     async function render() {
+      if (!geocoder) {
+        document.getElementById("list").innerHTML =
+          '<p class="empty">주소 검색 라이브러리가 로드되지 않았어요.<br>' +
+          'index.html의 카카오 SDK 주소 끝에 <b>&amp;libraries=services</b> 가 있는지 확인해 주세요.</p>';
+        return;
+      }
       // 기존 마커 / 정보창 정리
       overlays.forEach(o => o.setMap(null));
       overlays = [];
