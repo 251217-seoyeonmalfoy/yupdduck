@@ -1,41 +1,269 @@
-// ============================================================
-//  카페 목록 — 이 파일만 고치면 지도에 자동 반영돼요!
-//  name    : 카페 이름
-//  address : 도로명 주소 (카카오 주소검색으로 좌표를 자동 변환해요)
-//  pet     : 애견동반 가능하면 true, 아니면 false
-//  note    : 한 줄 메모 (선택)
-//  link    : 인스타/네이버지도 등 링크 (선택)
-//
-//  ⚠️ 아래는 형식을 보여주기 위한 "예시"예요. 실제 카페 정보로 바꿔주세요.
-//     (방문 전에 애견동반 여부/조건은 꼭 다시 확인하기!)
-// ============================================================
-const CAFES = [
-  {
-    name: "예시 카페 1 (애견동반)",
-    address: "경기 고양시 일산서구 호수로 817",
-    pet: true,
-    note: "소형견만 가능 / 리드줄 필수",
-    link: ""
-  },
-  {
-    name: "예시 카페 2 (애견동반)",
-    address: "경기 고양시 덕양구 고양대로 1955",
-    pet: true,
-    note: "야외 테라스 동반 가능",
-    link: ""
-  },
-  {
-    name: "예시 카페 3 (일반)",
-    address: "경기 고양시 일산동구 중앙로 1275",
-    pet: false,
-    note: "",
-    link: ""
-  },
-  {
-    name: "예시 카페 4 (일반)",
-    address: "경기 고양시 덕양구 화중로 104",
-    pet: false,
-    note: "",
-    link: ""
-  }
-];
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>고양시 애견동반카페 지도 · yupdduck</title>
+
+  <style>
+    :root {
+      --bg: #fffaf3;
+      --card: #ffffff;
+      --text: #3b2f2a;
+      --sub: #8a7a70;
+      --line: #eadfd3;
+      --accent: #f08a3c;      /* 애견동반 */
+      --accent-soft: #fde8d4;
+      --normal: #7a5c48;      /* 일반 카페 */
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+    }
+
+    header { padding: 16px 20px 0; }
+    header h1 { font-size: 20px; letter-spacing: -0.02em; }
+    header p { font-size: 13px; color: var(--sub); margin-top: 4px; }
+
+    .tabs { display: flex; gap: 8px; padding: 14px 20px 12px; }
+    .tab {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--sub);
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .tab .count { opacity: .8; margin-left: 4px; font-size: 12px; }
+
+    main {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+    #list {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 4px;
+    }
+    .item {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      cursor: pointer;
+    }
+    .item:hover, .item.focus { border-color: var(--accent); }
+    .item .name { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .badge {
+      font-size: 11px; font-weight: 600;
+      background: var(--accent-soft); color: var(--accent);
+      padding: 2px 7px; border-radius: 999px;
+    }
+    .item .addr { font-size: 12px; color: var(--sub); margin-top: 4px; }
+    .item .note { font-size: 12px; margin-top: 6px; }
+    .empty { color: var(--sub); font-size: 13px; padding: 20px 4px; }
+
+    #mapWrap { position: relative; min-height: 360px; }
+    #map { position: absolute; inset: 0; border-radius: 16px; border: 1px solid var(--line); }
+    .legend {
+      position: absolute; left: 12px; bottom: 12px; z-index: 5;
+      background: rgba(255,255,255,.95); border: 1px solid var(--line);
+      border-radius: 10px; padding: 8px 12px; font-size: 12px;
+      display: flex; gap: 12px;
+    }
+
+    /* 지도 위 마커 */
+    .pin {
+      width: 34px; height: 34px; border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.28);
+      cursor: pointer;
+    }
+    .pin span { transform: rotate(45deg); font-size: 16px; }
+    .pin.pet { background: var(--accent); }
+    .pin.normal { background: var(--normal); }
+
+    .iw { padding: 10px 12px; font-size: 13px; line-height: 1.5; min-width: 180px; max-width: 240px; }
+    .iw b { font-size: 14px; }
+    .iw a { color: var(--accent); }
+
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
+      #mapWrap { order: -1; }
+      #list { max-height: 40vh; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🐾 고양시 카페 지도</h1>
+    <p>탭을 눌러 전체 카페와 애견동반카페를 나눠서 볼 수 있어요</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="all">전체 카페 <span class="count" id="cnt-all"></span></button>
+    <button class="tab" data-tab="pet">애견동반카페 <span class="count" id="cnt-pet"></span></button>
+  </div>
+
+  <main>
+    <div id="list"></div>
+    <div id="mapWrap">
+      <div id="map"></div>
+      <div class="legend">
+        <span>🐾 애견동반</span>
+        <span>☕ 일반</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- ① 아래 YOUR_JAVASCRIPT_KEY 를 카카오 디벨로퍼스의 'JavaScript 키'로 바꿔주세요 -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_JAVASCRIPT_KEY&libraries=services&autoload=false"></script>
+  <script src="cafes.js"></script>
+  <script>
+    const GOYANG_CENTER = { lat: 37.6584, lng: 126.8320 }; // 고양시청 부근
+
+    let map, geocoder, infoWindow;
+    let currentTab = "all";
+    let overlays = [];           // 현재 지도에 올라간 마커들
+    const coordCache = {};       // 주소 → 좌표 캐시
+
+    const esc = (s = "") =>
+      String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    if (typeof kakao === "undefined") {
+      // SDK가 불러와지지 않은 경우: 키 / 등록 도메인 / 카카오맵 사용 설정을 확인하라는 안내
+      document.getElementById("map").innerHTML =
+        '<p style="padding:24px;line-height:1.6">지도를 불러오지 못했어요.<br>' +
+        '① JavaScript 키가 맞는지<br>② 카카오 디벨로퍼스에 현재 주소(도메인)가 등록됐는지<br>' +
+        '③ 카카오맵 사용 설정이 ON인지 확인해 주세요.</p>';
+    } else {
+      kakao.maps.load(init);
+    }
+
+    function init() {
+      map = new kakao.maps.Map(document.getElementById("map"), {
+        center: new kakao.maps.LatLng(GOYANG_CENTER.lat, GOYANG_CENTER.lng),
+        level: 7
+      });
+      map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
+      geocoder = new kakao.maps.services.Geocoder();
+      infoWindow = new kakao.maps.InfoWindow({ removable: true });
+
+      document.getElementById("cnt-all").textContent = CAFES.length;
+      document.getElementById("cnt-pet").textContent = CAFES.filter(c => c.pet).length;
+
+      document.querySelectorAll(".tab").forEach(btn =>
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          currentTab = btn.dataset.tab;
+          render();
+        })
+      );
+
+      render();
+    }
+
+    // 주소 → 좌표
+    function geocode(address) {
+      if (coordCache[address]) return Promise.resolve(coordCache[address]);
+      return new Promise(resolve => {
+        geocoder.addressSearch(address, (result, status) => {
+          if (status === kakao.maps.services.Status.OK) {
+            coordCache[address] = new kakao.maps.LatLng(result[0].y, result[0].x);
+            resolve(coordCache[address]);
+          } else {
+            console.warn("주소를 찾지 못했어요:", address);
+            resolve(null);
+          }
+        });
+      });
+    }
+
+    async function render() {
+      // 기존 마커 / 정보창 정리
+      overlays.forEach(o => o.setMap(null));
+      overlays = [];
+      infoWindow.close();
+
+      const cafes = currentTab === "pet" ? CAFES.filter(c => c.pet) : CAFES;
+      const listEl = document.getElementById("list");
+      listEl.innerHTML = "";
+
+      if (cafes.length === 0) {
+        listEl.innerHTML = '<p class="empty">표시할 카페가 아직 없어요. cafes.js에 추가해보세요!</p>';
+        return;
+      }
+
+      const bounds = new kakao.maps.LatLngBounds();
+      const coords = await Promise.all(cafes.map(c => geocode(c.address)));
+      let placed = 0;
+
+      cafes.forEach((cafe, i) => {
+        // 목록 카드
+        const card = document.createElement("div");
+        card.className = "item";
+        card.innerHTML = `
+          <div class="name">${esc(cafe.name)} ${cafe.pet ? '<span class="badge">애견동반</span>' : ""}</div>
+          <div class="addr">${esc(cafe.address)}</div>
+          ${cafe.note ? `<div class="note">${esc(cafe.note)}</div>` : ""}
+        `;
+        listEl.appendChild(card);
+
+        const pos = coords[i];
+        if (!pos) return;
+
+        // 지도 마커
+        const el = document.createElement("div");
+        el.className = "pin " + (cafe.pet ? "pet" : "normal");
+        el.innerHTML = `<span>${cafe.pet ? "🐾" : "☕"}</span>`;
+
+        const overlay = new kakao.maps.CustomOverlay({ position: pos, content: el, yAnchor: 1.1 });
+        overlay.setMap(map);
+        overlays.push(overlay);
+        bounds.extend(pos);
+        placed++;
+
+        const open = () => {
+          document.querySelectorAll(".item").forEach(x => x.classList.remove("focus"));
+          card.classList.add("focus");
+          infoWindow.setContent(`
+            <div class="iw">
+              <b>${esc(cafe.name)}</b><br/>
+              ${esc(cafe.address)}<br/>
+              ${cafe.note ? esc(cafe.note) + "<br/>" : ""}
+              ${cafe.link ? `<a href="${esc(cafe.link)}" target="_blank" rel="noopener">더 보기</a>` : ""}
+            </div>`);
+          infoWindow.setPosition(pos);
+          infoWindow.open(map);
+          map.panTo(pos);
+        };
+        el.addEventListener("click", open);
+        card.addEventListener("click", open);
+      });
+
+      if (placed > 0) map.setBounds(bounds, 60, 60, 60, 60);
+    }
+  </script>
+</body>
+</html>
