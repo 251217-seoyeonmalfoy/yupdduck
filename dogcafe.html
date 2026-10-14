@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>고양시 애견동반카페 지도 · yupdduck</title>
+  <title>고양시 애견동반카페 로드뷰 · yupdduck</title>
 
   <style>
     :root {
@@ -58,6 +58,13 @@
       padding: 0 20px 20px;
     }
     aside { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+    .filters { display: flex; gap: 6px; }
+    .filters input, .filters select {
+      font-family: inherit; font-size: 13px; color: var(--text);
+      border: 1px solid var(--line); background: var(--card);
+      border-radius: 10px; padding: 8px 10px; min-width: 0;
+    }
+    .filters input { flex: 1; }
     #status {
       font-size: 12px; color: var(--sub); line-height: 1.5;
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
@@ -92,31 +99,49 @@
     .empty { color: var(--sub); font-size: 13px; padding: 20px 4px; line-height: 1.6; }
     .error { color: #c0392b; font-size: 13px; padding: 12px 4px; line-height: 1.6; word-break: break-all; }
 
-    #mapWrap { position: relative; min-height: 360px; }
-    #map { position: absolute; inset: 0; border-radius: 16px; border: 1px solid var(--line); }
-    .legend {
-      position: absolute; left: 12px; bottom: 12px; z-index: 5;
-      background: rgba(255,255,255,.95); border: 1px solid var(--line);
-      border-radius: 10px; padding: 8px 12px; font-size: 12px;
-      display: flex; gap: 12px;
+    /* 오른쪽: 로드뷰 영역 */
+    section.view { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
+    #viewBar {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      padding: 10px 14px; display: flex; align-items: center; gap: 10px;
+    }
+    #viewInfo { flex: 1; min-width: 0; }
+    #viewInfo .t { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewInfo .s { font-size: 12px; color: var(--sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #viewInfo a { color: var(--accent); }
+    .nav {
+      border: 1px solid var(--line); background: var(--card); color: var(--text);
+      border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer; font-family: inherit;
+      white-space: nowrap;
+    }
+    .nav:disabled { opacity: .4; cursor: default; }
+    #viewWrap { position: relative; flex: 1; min-height: 320px; }
+    #roadview { position: absolute; inset: 0; border-radius: 16px; border: 1px solid var(--line); overflow: hidden; background: #e9e2d8; }
+    #rvMsg {
+      position: absolute; inset: 0; z-index: 5; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      background: rgba(255,250,243,.96); color: var(--sub); font-size: 14px; line-height: 1.7; padding: 24px;
     }
 
-    .iw { padding: 10px 12px; font-size: 13px; line-height: 1.55; min-width: 190px; max-width: 250px; }
-    .iw b { font-size: 14px; }
-    .iw a { color: var(--accent); }
-    .iw .sub { color: #8a7a70; font-size: 12px; }
+    /* 로드뷰 위에 뜨는 카페 이름표 */
+    .rv-label {
+      background: #fff; border: 2px solid var(--normal); color: var(--text);
+      border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,.3); white-space: nowrap;
+    }
+    .rv-label.pet { border-color: var(--accent); }
 
     @media (max-width: 760px) {
       main { grid-template-columns: 1fr; grid-template-rows: 55vh auto; }
-      #mapWrap { order: -1; }
+      section.view { order: -1; }
       aside { max-height: 40vh; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>🐾 고양시 카페 지도</h1>
-    <p>고양시의 모든 카페와 애견동반카페를 탭으로 나눠서 볼 수 있어요</p>
+    <h1>🐾 고양시 카페 로드뷰</h1>
+    <p>카페를 누르면 그 앞 거리를 로드뷰로 볼 수 있어요</p>
   </header>
 
   <div class="tabs">
@@ -126,16 +151,30 @@
 
   <main>
     <aside>
+      <div class="filters">
+        <input id="q" type="search" placeholder="카페 이름·주소 검색" />
+        <select id="gu">
+          <option value="">고양시 전체</option>
+          <option value="덕양구">덕양구</option>
+          <option value="일산동구">일산동구</option>
+          <option value="일산서구">일산서구</option>
+        </select>
+      </div>
       <div id="status"><span>준비 중...</span></div>
       <div id="list"><p class="empty">카페 정보를 불러오는 중이에요...</p></div>
     </aside>
-    <div id="mapWrap">
-      <div id="map"></div>
-      <div class="legend">
-        <span>🐾 애견동반</span>
-        <span>☕ 일반</span>
+
+    <section class="view">
+      <div id="viewBar">
+        <button class="nav" id="prev" disabled>◀ 이전</button>
+        <div id="viewInfo"><div class="t">카페를 선택해 주세요</div><div class="s">왼쪽 목록에서 카페를 누르면 로드뷰가 열려요</div></div>
+        <button class="nav" id="next" disabled>다음 ▶</button>
       </div>
-    </div>
+      <div id="viewWrap">
+        <div id="roadview"></div>
+        <div id="rvMsg">왼쪽 목록에서 카페를 눌러보세요 🐾</div>
+      </div>
+    </section>
   </main>
 
   <!-- 어떤 오류가 나도 왼쪽 목록 칸에 원인을 보여주는 장치 -->
@@ -148,15 +187,14 @@
     window.addEventListener("unhandledrejection", e => showError(e.reason && e.reason.message ? e.reason.message : e.reason));
   </script>
 
-  <!-- 카카오 지도 SDK (장소검색 services + 마커 묶음 clusterer) -->
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=09ecc13bc06db3f0c313c32b6506454a&libraries=services,clusterer&autoload=false"></script>
+  <!-- 카카오 SDK (로드뷰는 기본 포함, 장소검색용 services 라이브러리 필요) -->
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=09ecc13bc06db3f0c313c32b6506454a&libraries=services&autoload=false"></script>
 
   <script>
     // ============================================================
     //  설정
     // ============================================================
-    const GOYANG_CENTER = { lat: 37.6584, lng: 126.8320 };               // 고양시청 부근
-    const GOYANG_RECT   = { x1: 126.66, y1: 37.57, x2: 126.97, y2: 37.77 }; // 고양시 전체를 덮는 사각형(경도·위도)
+    const GOYANG_RECT = { x1: 126.66, y1: 37.57, x2: 126.97, y2: 37.77 }; // 고양시 전체를 덮는 사각형(경도·위도)
 
     // 애견동반 후보를 찾는 검색어
     const PET_KEYWORDS = ["애견동반", "애견카페", "펫카페", "반려견 동반", "강아지 카페", "도그카페", "펫프렌들리"];
@@ -167,18 +205,23 @@
     const MANUAL_ADD_PET    = [];  // 예: ["카페이름A", "카페이름B"]  → 애견동반으로 강제 표시
     const MANUAL_REMOVE_PET = [];  // 예: ["카페이름C"]              → 애견동반에서 제외
 
+    const ROADVIEW_RADIUS = 80;              // 카페 주변 몇 m 안에서 로드뷰를 찾을지
     const CACHE_KEY = "yupdduck-cafes-v1";
     const CACHE_TTL = 1000 * 60 * 60 * 12;   // 12시간 동안은 저장된 결과를 재사용
     const MAX_CONCURRENT = 8;                // 동시에 보내는 검색 요청 수
     const MAX_DEPTH = 9;                     // 구역을 쪼개는 최대 횟수
+    const LIST_LIMIT = 150;                  // 목록에 한 번에 그리는 최대 개수
   </script>
 
   <script>
-    let map, places, infoWindow, clusterAll, clusterPet;
+    let places, rv, rvClient;
     let ITEMS = [];            // 불러온 카페 전체
+    let VIEW = [];             // 탭/검색/구 필터를 거친 목록
     let currentTab = "all";
-    let focusedId = null;
-    let imgPet, imgNormal;
+    let curIdx = -1;
+    let rvMarker = null, rvLabel = null;
+    let pendingFace = null;
+    const stats = { failed: 0 };
 
     const $ = id => document.getElementById(id);
     const esc = (s = "") =>
@@ -186,10 +229,9 @@
     const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     if (typeof kakao === "undefined") {
-      $("map").innerHTML =
-        '<p style="padding:24px;line-height:1.6">지도를 불러오지 못했어요.<br>' +
-        '① JavaScript 키가 맞는지<br>② 카카오 디벨로퍼스에 현재 주소(도메인)가 등록됐는지<br>' +
-        '③ 카카오맵 사용 설정이 ON인지 확인해 주세요.</p>';
+      $("rvMsg").innerHTML =
+        '지도를 불러오지 못했어요.<br>① JavaScript 키가 맞는지<br>② 카카오 디벨로퍼스에 현재 주소(도메인)가 등록됐는지<br>' +
+        '③ 카카오맵 사용 설정이 ON인지 확인해 주세요.';
       showError("카카오 SDK를 불러오지 못했어요.");
     } else {
       kakao.maps.load(init);
@@ -199,60 +241,34 @@
     //  초기화
     // ------------------------------------------------------------
     function init() {
-      // 탭 버튼부터 연결
+      // 탭·검색·필터부터 연결
       document.querySelectorAll(".tab").forEach(btn =>
         btn.addEventListener("click", () => {
           document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
           btn.classList.add("active");
           currentTab = btn.dataset.tab;
-          showTab();
+          applyFilter();
         })
       );
+      $("q").addEventListener("input", applyFilter);
+      $("gu").addEventListener("change", applyFilter);
+      $("prev").addEventListener("click", () => step(-1));
+      $("next").addEventListener("click", () => step(1));
 
-      map = new kakao.maps.Map($("map"), {
-        center: new kakao.maps.LatLng(GOYANG_CENTER.lat, GOYANG_CENTER.lng),
-        level: 8
-      });
-      map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
-
-      if (!kakao.maps.services || !kakao.maps.MarkerClusterer) {
-        showError("services / clusterer 라이브러리가 로드되지 않았어요. SDK 주소에 &libraries=services,clusterer 가 있는지 확인해 주세요.");
+      if (!kakao.maps.services) {
+        showError("services 라이브러리가 로드되지 않았어요. SDK 주소에 &libraries=services 가 있는지 확인해 주세요.");
         return;
       }
 
       places = new kakao.maps.services.Places();
-      infoWindow = new kakao.maps.InfoWindow({ removable: true });
-      imgPet = makeMarkerImage("#f08a3c", "🐾");
-      imgNormal = makeMarkerImage("#7a5c48", "☕");
-      clusterAll = makeClusterer("rgba(122,92,72,.88)");
-      clusterPet = makeClusterer("rgba(240,138,60,.9)");
+      rv = new kakao.maps.Roadview($("roadview"));
+      rvClient = new kakao.maps.RoadviewClient();
 
-      kakao.maps.event.addListener(map, "idle", updateList);
+      // 로드뷰가 준비되면, 대기 중이던 "카페 쪽으로 시선 돌리기"를 실행
+      kakao.maps.event.addListener(rv, "init", runPending);
+      kakao.maps.event.addListener(rv, "panoid_changed", () => setTimeout(runPending, 50));
+
       loadAll(false);
-    }
-
-    function makeMarkerImage(color, glyph) {
-      const svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">' +
-        '<path d="M16 39C16 39 2 24 2 14a14 14 0 0 1 28 0c0 10-14 25-14 25z" fill="' + color + '" stroke="#fff" stroke-width="2"/>' +
-        '<text x="16" y="19" font-size="13" text-anchor="middle">' + glyph + "</text></svg>";
-      return new kakao.maps.MarkerImage(
-        "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg),
-        new kakao.maps.Size(32, 40),
-        { offset: new kakao.maps.Point(16, 40) }
-      );
-    }
-
-    function makeClusterer(bg) {
-      return new kakao.maps.MarkerClusterer({
-        map: map,
-        averageCenter: true,
-        minLevel: 5,
-        styles: [{
-          width: "44px", height: "44px", background: bg, borderRadius: "22px",
-          color: "#fff", textAlign: "center", fontWeight: "bold", lineHeight: "44px"
-        }]
-      });
     }
 
     // ------------------------------------------------------------
@@ -261,7 +277,7 @@
     async function loadAll(force) {
       if (!force) {
         const cached = readCache();
-        if (cached) { ITEMS = cached; buildMarkers(); showTab(); return; }
+        if (cached) { ITEMS = prepare(cached); applyFilter(); return; }
       }
 
       $("list").innerHTML = '<p class="empty">고양시 카페를 찾고 있어요. 처음에는 20~40초 정도 걸릴 수 있어요...</p>';
@@ -269,25 +285,20 @@
       const petIds = new Set();     // 애견동반 키워드로 잡힌 id
       stats.failed = 0;
 
-      const tick = setInterval(() => setStatus("검색 중... 지금까지 " + found.size + "곳 발견"), 500);
+      const tick = setInterval(() => { $("status").innerHTML = "<span>검색 중... 지금까지 " + found.size + "곳 발견</span>"; }, 500);
 
       try {
         // ① 고양시 전체 카페 (카테고리 CE7)
         const allTask = collect("cat", "CE7", GOYANG_RECT, 0, found, null);
-
         // ② 애견동반 후보 (키워드 검색, 카페만 걸러서)
-        const petTask = Promise.all(
-          PET_KEYWORDS.map(kw => collect("kw", kw, GOYANG_RECT, 0, found, petIds))
-        );
-
+        const petTask = Promise.all(PET_KEYWORDS.map(kw => collect("kw", kw, GOYANG_RECT, 0, found, petIds)));
         await Promise.all([allTask, petTask]);
       } finally {
         clearInterval(tick);
       }
 
-      ITEMS = [...found.values()].map(p => {
-        const nameHit = PET_NAME_REGEX.test(p.place_name);
-        let pet = petIds.has(p.id) || nameHit;
+      const raw = [...found.values()].map(p => {
+        let pet = petIds.has(p.id) || PET_NAME_REGEX.test(p.place_name);
         if (MANUAL_ADD_PET.includes(p.place_name)) pet = true;
         if (MANUAL_REMOVE_PET.includes(p.place_name)) pet = false;
         return {
@@ -296,12 +307,22 @@
         };
       });
 
-      if (ITEMS.length > 0 && stats.failed === 0) writeCache(ITEMS);
-      buildMarkers();
-      showTab();
+      if (raw.length > 0 && stats.failed === 0) writeCache(raw);
+      ITEMS = prepare(raw);
+      applyFilter();
     }
 
-    const stats = { failed: 0 };
+    // 좌표 객체와 구 정보를 붙이고, 이름순으로 정렬
+    function prepare(raw) {
+      const items = raw.map(r => {
+        const m = (r.a || "").match(/(덕양구|일산동구|일산서구)/);
+        return { ...r, gu: m ? m[1] : "", pos: new kakao.maps.LatLng(r.y, r.x) };
+      });
+      items.sort((a, b) => a.n.localeCompare(b.n, "ko"));
+      $("cnt-all").textContent = items.length;
+      $("cnt-pet").textContent = items.filter(i => i.p).length;
+      return items;
+    }
 
     // 요청 수를 제한하는 대기열 (한꺼번에 너무 많이 보내면 오류가 나기 때문)
     let active = 0;
@@ -394,86 +415,139 @@
     }
 
     // ------------------------------------------------------------
-    //  지도 / 목록 그리기
+    //  목록 (탭 / 검색 / 구 필터)
     // ------------------------------------------------------------
-    function buildMarkers() {
-      ITEMS.forEach(it => {
-        it.pos = new kakao.maps.LatLng(it.y, it.x);
-        it.marker = new kakao.maps.Marker({ position: it.pos, image: it.p ? imgPet : imgNormal, title: it.n });
-        kakao.maps.event.addListener(it.marker, "click", () => openItem(it, false));
-      });
-      $("cnt-all").textContent = ITEMS.length;
-      $("cnt-pet").textContent = ITEMS.filter(i => i.p).length;
-    }
-
-    function currentItems() {
-      return currentTab === "pet" ? ITEMS.filter(i => i.p) : ITEMS;
-    }
-
-    function showTab() {
-      infoWindow.close();
-      clusterAll.clear();
-      clusterPet.clear();
-      const items = currentItems();
-      const cl = currentTab === "pet" ? clusterPet : clusterAll;
-      cl.addMarkers(items.map(i => i.marker));
-      updateList();
-    }
-
-    function updateList() {
+    function applyFilter() {
       if (!ITEMS.length) return;
-      const items = currentItems();
-      const bounds = map.getBounds();
-      const visible = items.filter(i => bounds.contain(i.pos));
-      const LIMIT = 80;
+      const q = $("q").value.trim().toLowerCase();
+      const gu = $("gu").value;
 
+      VIEW = ITEMS.filter(i =>
+        (currentTab === "all" || i.p) &&
+        (!gu || i.gu === gu) &&
+        (!q || i.n.toLowerCase().includes(q) || (i.a || "").toLowerCase().includes(q))
+      );
+
+      // 지금 보고 있는 카페가 새 목록에도 있으면 그 위치를 유지
+      const curId = curIdx >= 0 && curItem() ? curItem().id : null;
+      curIdx = curId ? VIEW.findIndex(i => i.id === curId) : -1;
+
+      renderList();
+      updateNav();
+    }
+
+    const curItem = () => (curIdx >= 0 ? VIEW[curIdx] : null);
+
+    function renderList() {
       $("status").innerHTML =
-        "<span>" + (currentTab === "pet" ? "애견동반카페 " : "고양시 카페 ") + items.length +
-        "곳 · 화면 안 " + visible.length + "곳" + (stats.failed ? " (일부 구간 조회 실패)" : "") + "</span>" +
+        "<span>" + (currentTab === "pet" ? "애견동반카페 " : "고양시 카페 ") + VIEW.length + "곳" +
+        (stats.failed ? " (일부 구간 조회 실패)" : "") + "</span>" +
         '<button id="refresh" title="카카오에서 다시 불러오기">새로고침</button>';
       $("refresh").onclick = () => { try { localStorage.removeItem(CACHE_KEY); } catch (e) {} loadAll(true); };
 
       const listEl = $("list");
       listEl.innerHTML = "";
-      if (visible.length === 0) {
-        listEl.innerHTML = '<p class="empty">지금 화면에는 카페가 없어요. 지도를 움직이거나 줄여보세요.</p>';
+      if (VIEW.length === 0) {
+        listEl.innerHTML = '<p class="empty">조건에 맞는 카페가 없어요. 검색어나 구 선택을 바꿔보세요.</p>';
         return;
       }
 
-      visible.slice(0, LIMIT).forEach(it => {
+      VIEW.slice(0, LIST_LIMIT).forEach((it, idx) => {
         const card = document.createElement("div");
-        card.className = "item" + (it.id === focusedId ? " focus" : "");
+        card.className = "item" + (idx === curIdx ? " focus" : "");
+        card.dataset.idx = idx;
         const cat = (it.c || "").split(">").pop().trim();
         card.innerHTML =
           '<div class="name">' + esc(it.n) + (it.p ? ' <span class="badge">애견동반</span>' : "") + "</div>" +
           '<div class="addr">' + esc(it.a) + "</div>" +
           (cat ? '<div class="cat">' + esc(cat) + "</div>" : "");
-        card.addEventListener("click", () => openItem(it, true));
+        card.addEventListener("click", () => select(idx));
         listEl.appendChild(card);
       });
 
-      if (visible.length > LIMIT) {
+      if (VIEW.length > LIST_LIMIT) {
         const more = document.createElement("p");
         more.className = "empty";
-        more.textContent = "가까운 " + LIMIT + "곳만 보여줘요. 지도를 확대하면 더 볼 수 있어요.";
+        more.textContent = "앞의 " + LIST_LIMIT + "곳만 보여줘요. 검색이나 구 선택으로 좁혀보세요.";
         listEl.appendChild(more);
       }
     }
 
-    function openItem(it, zoomIn) {
-      focusedId = it.id;
-      infoWindow.setContent(
-        '<div class="iw"><b>' + esc(it.n) + "</b><br/>" +
-        esc(it.a) + "<br/>" +
-        (it.t ? '<span class="sub">' + esc(it.t) + "</span><br/>" : "") +
-        (it.p ? '<span class="sub">🐾 애견동반 후보 (방문 전 확인 추천)</span><br/>' : "") +
-        (it.u ? '<a href="' + esc(it.u) + '" target="_blank" rel="noopener">카카오맵에서 보기</a>' : "") +
-        "</div>"
+    function updateNav() {
+      $("prev").disabled = !(curIdx > 0);
+      $("next").disabled = !(curIdx >= 0 && curIdx < VIEW.length - 1);
+    }
+
+    function step(d) {
+      const n = curIdx + d;
+      if (n < 0 || n >= VIEW.length) return;
+      select(n);
+      const card = $("list").querySelector('[data-idx="' + n + '"]');
+      if (card) card.scrollIntoView({ block: "nearest" });
+    }
+
+    function select(idx) {
+      curIdx = idx;
+      const it = VIEW[idx];
+      document.querySelectorAll("#list .item").forEach(el =>
+        el.classList.toggle("focus", +el.dataset.idx === idx)
       );
-      infoWindow.setPosition(it.pos);
-      infoWindow.open(map);
-      if (zoomIn && map.getLevel() > 4) map.setLevel(4);
-      map.panTo(it.pos);
+      updateNav();
+
+      $("viewInfo").innerHTML =
+        '<div class="t">' + esc(it.n) + (it.p ? " 🐾" : "") + "</div>" +
+        '<div class="s">' + esc(it.a) + (it.t ? " · " + esc(it.t) : "") +
+        (it.u ? ' · <a href="' + esc(it.u) + '" target="_blank" rel="noopener">카카오맵에서 보기</a>' : "") + "</div>";
+
+      showRoadview(it);
+    }
+
+    // ------------------------------------------------------------
+    //  로드뷰
+    // ------------------------------------------------------------
+    function showRoadview(it) {
+      $("rvMsg").style.display = "none";
+      rvClient.getNearestPanoId(it.pos, ROADVIEW_RADIUS, panoId => {
+        if (it !== curItem()) return;      // 그 사이 다른 카페를 눌렀으면 무시
+        if (panoId === null) {
+          clearOverlays();
+          pendingFace = null;
+          $("rvMsg").style.display = "flex";
+          $("rvMsg").innerHTML = "이 카페 주변 " + ROADVIEW_RADIUS + "m 안에는 로드뷰가 없어요 😢<br>다음 카페를 눌러보세요.";
+          return;
+        }
+        pendingFace = () => faceCafe(it);
+        if (rv.getPanoId() === panoId) {
+          runPending();
+        } else {
+          rv.setPanoId(panoId, it.pos);
+          setTimeout(runPending, 800);     // 이벤트를 놓쳤을 때를 위한 안전장치
+        }
+      });
+    }
+
+    function runPending() {
+      if (!pendingFace) return;
+      const f = pendingFace;
+      try { f(); pendingFace = null; } catch (e) { /* 로드뷰가 아직 준비 전이면 다음 이벤트에서 다시 시도 */ }
+    }
+
+    function clearOverlays() {
+      if (rvMarker) { rvMarker.setMap(null); rvMarker = null; }
+      if (rvLabel) { rvLabel.setMap(null); rvLabel = null; }
+    }
+
+    // 카페 위치에 핀과 이름표를 올리고, 시선을 카페 쪽으로 돌림
+    function faceCafe(it) {
+      clearOverlays();
+      rvMarker = new kakao.maps.Marker({ position: it.pos, map: rv });
+      const vp = rv.getProjection().viewpointFromCoords(it.pos, rvMarker.getAltitude());
+      rv.setViewpoint(vp);
+
+      const el = document.createElement("div");
+      el.className = "rv-label" + (it.p ? " pet" : "");
+      el.textContent = (it.p ? "🐾 " : "☕ ") + it.n;
+      rvLabel = new kakao.maps.CustomOverlay({ position: it.pos, content: el, xAnchor: 0.5, yAnchor: 2.6, map: rv });
     }
   </script>
 </body>
